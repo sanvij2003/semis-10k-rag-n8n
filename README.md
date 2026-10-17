@@ -21,7 +21,7 @@ Built for The Gen Academy, *Mastering Agentic AI*, Week 2 (Track 1: no-code, Pro
 **Findings**
 - **No hallucinations in any run.** Every failure was a refusal, not a wrong answer. Faithfulness of 1.00 is inflated, since refusals score as faithful by design.
 - **Reranking helped:** Hit@5 rose from 58% to 75%, and two multi-company questions were fixed (one full answer instead of a partial one, one answer instead of a refusal). The cost was about 1.5 s of added latency and 16% more prompt tokens. This is directional only at n = 12.
-- **Recursive (structure-aware) chunking gave no measurable benefit** over fixed 512-token chunks, despite producing 14% more chunks.
+- **Recursive (structure-aware) chunking gave no measurable benefit** over fixed 512-token chunks, despite producing 15% more chunks. (The two strategies also differ in overlap: 0 tokens for fixed vs 200 characters for recursive.)
 - **Number questions did well:** page-split PDF parsing kept the financial tables readable.
 
 Full per-question analysis and the iterations log: [`eval/results.md`](eval/results.md)
@@ -33,7 +33,7 @@ Full per-question analysis and the iterations log: [`eval/results.md`](eval/resu
 ```
 INGESTION (workflow: 10-k Ingestion)
 Form upload (PDF + ticker + fiscal year)
-  ├─ Default Data Loader (PDF, split pages, metadata) ─ Token Splitter 512/50 ─────────┐
+  ├─ Default Data Loader (PDF, split pages, metadata) ─ Token Splitter 512, no overlap ─┐
   └─ Default Data Loader (PDF, split pages, metadata) ─ Recursive Character 2000/200 ─┤
                                                 Embeddings: Qwen3-Embedding-8B (Nebius)
                                                 Pinecone index semis-10k (4096 dims, cosine)
@@ -55,17 +55,20 @@ Chat trigger / Evaluation trigger (+7 s Wait)
 
 ---
 
-## Stack
+## Tools used and why
 
-| Layer | Choice |
-|---|---|
-| Orchestration | n8n Cloud |
-| Embeddings | `Qwen/Qwen3-Embedding-8B` via Nebius Token Factory (4,096 dims) |
-| Vector store | Pinecone serverless, cosine |
-| Reranker | Cohere `rerank-v3.5` |
-| Answer model | `google/gemma-3-27b-it` via Nebius (temperature 0) |
-| Judge model | `Qwen/Qwen3-235B-A22B-Instruct-2507` via Nebius (different model family from the answer model) |
-| Cost | about $0.0007 per question including judging |
+| Tool | Role | Why |
+|---|---|---|
+| **n8n Cloud** | Orchestration | It's the no-code track's platform. Its built-in Evaluations feature ran all 15 test questions and recorded the scores without any code. |
+| **SEC EDGAR** | Data source | The official, free source for 10-K filings, so every answer traces back to the filing itself. |
+| **Nebius Token Factory** | AI model hosting | Hosts open models through an OpenAI-compatible API. The course credits made the project nearly free (about $0.0007 per question, including judging). |
+| `Qwen/Qwen3-Embedding-8B` | Embeddings | Turns text into vectors for search (4,096 dimensions). Its long context easily fits 500-token chunks. |
+| `google/gemma-3-27b-it` | Answer model | Cheap, and follows strict "cite or refuse" rules well at temperature 0. Answers in about 3 to 4 seconds. |
+| `Qwen/Qwen3-235B-A22B-Instruct-2507` | Judge model | A larger model from a different family grades faithfulness, so the answer model isn't graded by a model with its own style. |
+| **Pinecone** (serverless, cosine) | Vector database | The free tier hosts both chunking strategies in one index as separate namespaces, so the comparison is a single setting change. |
+| **Cohere** `rerank-v3.5` | Reranker | Reorders the top 20 search results by relevance, which raised retrieval hits from 58% to 75%. It plugs into n8n's Pinecone node directly. |
+| **GitHub** | Hosting | Holds the workflow exports, the evaluation set and the results, so anyone can import and rerun the system. |
+| **Claude** | AI assistant | Helped design the architecture, write the prompts and n8n expressions, debug errors from screenshots, and draft the documentation. |
 
 ---
 
@@ -91,6 +94,7 @@ docs/        corpus.md (EDGAR links, fiscal years, page counts)
 6. Import `eval/eval_questions.csv` as an n8n data table and run the evaluation from the **Evaluations** tab.
 
 ## Limitations
+- The fixed splitter ran with 0 token overlap (the n8n default; the planned 50 was never set). A fact that straddles a chunk boundary can be split across two chunks.
 - Dense-only retrieval, with no hybrid keyword search. One question (NVIDIA's foundries) fails because the question's wording ("produce") doesn't match the filing's ("utilize foundries").
 - n8n has no embedding-based semantic chunker. Recursive Character is the closest no-code equivalent.
 - Browser-printed PDFs add print headers and "Table of Contents" text to every chunk.
