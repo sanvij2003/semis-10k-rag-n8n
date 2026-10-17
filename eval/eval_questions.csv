@@ -1,0 +1,16 @@
+id,type,question,reference_answer,evidence
+Q01,fact,Which foundries does NVIDIA say produce its semiconductor wafers in its fiscal 2026 10-K?,"NVIDIA uses foundries such as Taiwan Semiconductor Manufacturing Company (TSMC) and Samsung Electronics to produce its semiconductor wafers (NVDA 10-K, page 10).",utilize foundries
+Q02,fact,What are AMD's three reportable segments in its fiscal 2025 10-K?,"Data Center, Client and Gaming, and Embedded (AMD 10-K, page 8).",Client and Gaming segment
+Q03,fact,What are Micron's four business units in its fiscal 2026 10-K?,"Cloud Memory Business Unit (CMBU), Core Data Center Business Unit (CDBU), Mobile and Client Business Unit (MCBU), and Automotive and Embedded Business Unit (AEBU) (MU 10-K, page 143).",Cloud Memory Business Unit
+Q04,fact,What four components does Intel list as its foundry offerings in its fiscal 2025 10-K?,"Wafer fabrication, advanced packaging, chiplet integration, and design enablement services (INTC 10-K, page 11).",chiplet integration
+Q05,fact,What two industry firsts does Intel say the Intel 18A process introduces in its fiscal 2025 10-K?,"Gate-all-around transistors (RibbonFET) and backside power delivery (PowerVia) (INTC 10-K, page 9).",RibbonFET
+Q06,number,What was NVIDIA's total revenue for fiscal year 2026 (year ended January 25 2026)?,"$215,938 million (NVDA 10-K, page 53; also pages 71 and 104).","215,938"
+Q07,number,What was AMD's research and development expense in fiscal 2025?,"$8,091 million (AMD 10-K, pages 73 and 81).","8,091"
+Q08,number,What was Intel's net revenue in fiscal 2025?,"$52,853 million (INTC 10-K, pages 44 and 101).","52,853"
+Q09,number,What was Micron's research and development expense in fiscal 2026?,"$5,650 million (MU 10-K, pages 88 and 106).","5,650"
+Q10,multi,Compare NVIDIA's fiscal 2026 and AMD's fiscal 2025 research and development expenses.,"NVIDIA: $18,497 million in fiscal 2026 (NVDA 10-K, page 58). AMD: $8,091 million in fiscal 2025 (AMD 10-K, page 81). NVIDIA's R&D expense was about $10,406 million higher, roughly 2.3 times AMD's.","18,497"
+Q11,multi,How many employees did NVIDIA (end of fiscal 2026) and AMD (end of fiscal 2025) report?,"NVIDIA: approximately 42,000 employees in 38 countries (NVDA 10-K, page 15). AMD: approximately 31,000 employees as of December 27 2025 (AMD 10-K, page 19).","42,000 employees"
+Q12,multi,NVIDIA's fiscal 2026 10-K names its memory suppliers. Is Micron one of them and which Micron business unit sells HBM according to Micron's fiscal 2026 10-K?,"Yes. NVIDIA buys memory from SK Hynix, Micron Technology and Samsung (NVDA 10-K, page 10). Micron's Cloud Memory Business Unit (CMBU) covers HBM for all data center customers (MU 10-K, pages 13 and 143).",SK Hynix
+Q13,unanswerable,What was Qualcomm's revenue last year?,I could not find this in the 10-K filings I have.,
+Q14,unanswerable,What is NVIDIA's current stock price?,I could not find this in the 10-K filings I have.,
+Q15,unanswerable,What did Intel's CEO say on the latest quarterly earnings call?,I could not find this in the 10-K filings I have.,

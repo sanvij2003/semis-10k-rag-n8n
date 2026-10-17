@@ -1,0 +1,642 @@
+{
+  "name": "10-K Q&A",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1fcf671f-9ee5-4194-a59d-93d22912c70b",
+      "name": "When chat message received",
+      "webhookId": "edb7d502-c6bf-41cc-8455-e69dae2b87e8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "559c65b7-ae26-4544-87ac-0c31abac8898",
+              "name": "question",
+              "value": "={{ $json.chatInput ?? $json.question }}",
+              "type": "string"
+            },
+            {
+              "id": "2c576d8e-586d-4815-96ce-cb84bc062b5c",
+              "name": "evidence",
+              "value": "={{ $json.evidence ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3f1ee1ec-db37-4413-97b4-301dbce1ebcf",
+      "name": "Normalize question"
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "semis-10k",
+          "mode": "list",
+          "cachedResultName": "semis-10k"
+        },
+        "prompt": "={{ $json.question }}",
+        "topK": 20,
+        "useReranker": true,
+        "options": {
+          "pineconeNamespace": "fixed"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "a7688855-cfb4-4403-bc9a-d2ab89746f25",
+      "name": "Retrieve chunks",
+      "notesInFlow": false,
+      "credentials": {
+        "pineconeApi": {
+          "id": "EqfZpkeiPbVkRgRr",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "Qwen/Qwen3-Embedding-8B",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        352,
+        336
+      ],
+      "id": "8d0530fe-46cf-4a78-84f7-88d4cea0f8c9",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "2QQQxu6ZRey31Hj5",
+          "name": "Nebius"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "768ee339-f056-402e-a6c0-5afe7f862147",
+              "name": "context",
+              "value": "={{ $('Retrieve chunks').all().map((it, i) => '[' + (i + 1) + '] ' + it.json.document.metadata.ticker + ' 10-K, page ' + (it.json.document.metadata['loc.pageNumber'] ?? '?') + '\\n' + it.json.document.pageContent).join('\\n\\n---\\n\\n') }}",
+              "type": "string"
+            },
+            {
+              "id": "9e1175f6-ef6e-4876-b1d0-371e320481bc",
+              "name": "=top_score",
+              "value": "={{ Math.max(...$('Retrieve chunks').all().map(it => it.json.score ?? 0)) }}",
+              "type": "number"
+            },
+            {
+              "id": "d721ec96-fc54-4a30-b4ce-42ac8e5d5af6",
+              "name": "hit_at_5",
+              "value": "={{ $('Normalize question').first().json.evidence ? ($('Retrieve chunks').all().some(it => it.json.document.pageContent.toLowerCase().includes($('Normalize question').first().json.evidence.toLowerCase())) ? 1 : 0) : 0 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        816,
+        16
+      ],
+      "id": "60459e1b-f682-464b-984e-23dfdd7d851c",
+      "name": "Build context",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "18d077a1-7471-47b7-ba73-9d2198ff1ed7",
+              "leftValue": "={{ $json.top_score }}",
+              "rightValue": 0.3,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        16
+      ],
+      "id": "1872adc8-18e9-4e12-a3e3-a9c5b0d5e585",
+      "name": "Enough evidence?"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You answer questions about semiconductor companies using ONLY the numbered excerpts from their 10-K filings below.\n\nRules:\n1. Use only facts stated in the excerpts. Do not use outside knowledge, even if you know the answer.\n2. After every sentence that states a fact, cite the excerpt number in square brackets, like [2] or [1][3].\n3. If the excerpts contain no part of the answer, reply with exactly this sentence and nothing else (no Sources line): I could not find this in the 10-K filings I have.\n4. If the excerpts answer only part of the question, answer that part with citations and say in your own words which part is not covered. Do not use the sentence from rule 3 in a partial answer.\n5. Copy numbers exactly as written, with units and the fiscal period. Only calculate if the question asks for it, and show the inputs.\n6. Keep the answer under 100 words.\n7. End with a \"Sources:\" line listing only the excerpts you actually cited, as [n] TICKER 10-K, page P.\n\nExcerpts:\n{{ $('Build context').first().json.context }}\n\nQuestion: {{ $('Normalize question').first().json.question }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1264,
+        -48
+      ],
+      "id": "6e019993-2404-4c2f-b981-03ba1b8709b9",
+      "name": "Answer"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "google/gemma-3-27b-it"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        160
+      ],
+      "id": "6554a575-ce6f-48cf-afa3-d74a3f8a16a8",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "2QQQxu6ZRey31Hj5",
+          "name": "Nebius"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f5ef5061-1a6f-4aa3-915b-a9d3b4710720",
+              "name": "text",
+              "value": "I could not find this in the 10-K filings I have.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        928,
+        208
+      ],
+      "id": "47b604eb-3b66-424d-b0e9-676dd1c9e631",
+      "name": "Refuse"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "96862ea6-7b56-4fbb-86b6-e237f9455321",
+              "name": "output",
+              "value": "={{ $json.text.replace(/\\s*Sources:\\s*$/i, '').trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1632,
+        -48
+      ],
+      "id": "9a4b080c-ba4d-4a12-8e3e-58a1ae52fd4c",
+      "name": "Final answer"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "pzEn7C8uis2tc2En",
+          "mode": "list",
+          "cachedResultName": "eval questions",
+          "cachedResultUrl": "/projects/LLAYxJBg6QJzjwb6/datatables/pzEn7C8uis2tc2En"
+        }
+      },
+      "type": "n8n-nodes-base.evaluationTrigger",
+      "typeVersion": 4.7,
+      "position": [
+        -16,
+        208
+      ],
+      "id": "a3f890c0-c75b-49f7-8c98-493960921aaf",
+      "name": "When fetching a dataset row"
+    },
+    {
+      "parameters": {
+        "operation": "checkIfEvaluating"
+      },
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        1856,
+        -48
+      ],
+      "id": "48e4b004-3cb4-4dba-8ec5-76bbb8d49b45",
+      "name": "Evaluation"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+          "mode": "id"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2016,
+        64
+      ],
+      "id": "51ddb6a0-0d22-4485-8413-b23d6b10e14b",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "2QQQxu6ZRey31Hj5",
+          "name": "Nebius"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "=You are grading whether an answer is supported by source excerpts.\n\nEXCERPTS:\n{{ $('Build context').first().json.context }}\n\nANSWER:\n{{ $('Final answer').first().json.output }}\n\nScore 1 if every factual claim in the ANSWER is directly supported by the EXCERPTS, or if the ANSWER is exactly \"I could not find this in the 10-K filings I have.\" Score 0 if any claim is missing from or contradicts the EXCERPTS. Reply with only the digit 1 or 0.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2080,
+        -144
+      ],
+      "id": "b5cc07ed-5299-49b2-a128-3e0ebc63e4f8",
+      "name": "Faithfullness judge"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "pzEn7C8uis2tc2En",
+          "mode": "list",
+          "cachedResultName": "eval questions",
+          "cachedResultUrl": "/projects/LLAYxJBg6QJzjwb6/datatables/pzEn7C8uis2tc2En"
+        },
+        "outputs": {
+          "values": [
+            {
+              "outputName": "answer",
+              "outputValue": "={{ $('Final answer').first().json.output }}"
+            },
+            {
+              "outputName": "top_score",
+              "outputValue": "={{ $('Build context').first().json.top_score }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        2448,
+        -144
+      ],
+      "id": "46a38806-08e0-4bee-bac8-8726cdb005f3",
+      "name": "Evaluation1"
+    },
+    {
+      "parameters": {
+        "operation": "setMetrics",
+        "metric": "customMetrics",
+        "metrics": {
+          "assignments": [
+            {
+              "name": "faithfullness",
+              "value": "={{ parseInt(String($json.text).trim()) || 0 }}",
+              "type": "number",
+              "id": "bbcc2e13-4d3c-45a6-b56c-b0c792ad56e1"
+            },
+            {
+              "id": "a1418277-195b-4265-b13d-e3f5aafae35c",
+              "name": "hit_at_5",
+              "value": "={{ $('Build context').first().json.hit_at_5 }}",
+              "type": "number"
+            },
+            {
+              "id": "3f63cbf7-9784-4f1a-8d4a-75d9cd690cbc",
+              "name": "refused",
+              "value": "={{ $('Final answer').first().json.output.includes('I could not find this in the 10-K filings I have') ? 1 : 0 }}",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        2672,
+        -144
+      ],
+      "id": "d67ecf1a-6097-4c6c-a24d-e28b1f240eb5",
+      "name": "Evaluation2"
+    },
+    {
+      "parameters": {
+        "topN": 5
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        592,
+        208
+      ],
+      "id": "f7d5cfab-3c9e-46f1-b6df-339725520b35",
+      "name": "Reranker Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "GPKEiTaY1FQwE1zH",
+          "name": "Cohere"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 7
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        208
+      ],
+      "id": "baa657b2-1010-48fc-a097-ad2e670647b7",
+      "name": "Wait",
+      "webhookId": "d452987f-2aa3-4e77-9853-af2e5edb992f"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Normalize question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize question": {
+      "main": [
+        [
+          {
+            "node": "Retrieve chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Retrieve chunks",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve chunks": {
+      "main": [
+        [
+          {
+            "node": "Build context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build context": {
+      "main": [
+        [
+          {
+            "node": "Enough evidence?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough evidence?": {
+      "main": [
+        [
+          {
+            "node": "Answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Answer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer": {
+      "main": [
+        [
+          {
+            "node": "Final answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refuse": {
+      "main": [
+        [
+          {
+            "node": "Final answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When fetching a dataset row": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final answer": {
+      "main": [
+        [
+          {
+            "node": "Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Faithfullness judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Faithfullness judge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Faithfullness judge": {
+      "main": [
+        [
+          {
+            "node": "Evaluation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation1": {
+      "main": [
+        [
+          {
+            "node": "Evaluation2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Retrieve chunks",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Normalize question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5b0370bc-99d2-4ad5-b054-6e0cb486f00f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2d48419d7066fb655597df985030c2322372ae54816e5dbf7fdfa7d730e6169a"
+  },
+  "nodeGroups": [],
+  "id": "zWqYdnvg9EQyx68N",
+  "tags": []
+}
