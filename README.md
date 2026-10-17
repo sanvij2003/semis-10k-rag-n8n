@@ -20,7 +20,7 @@ Built for The Gen Academy, *Mastering Agentic AI*, Week 2 (Track 1: no-code, Pro
 
 **Findings**
 - **No hallucinations in any run.** Every failure was a refusal, not a wrong answer. Faithfulness of 1.00 is inflated, since refusals score as faithful by design.
-- **Reranking helped:** Hit@5 rose from 58% to 75%, and two multi-company questions were fixed (one full answer instead of a partial one, one answer instead of a refusal). The cost was about 1.5 s of added latency and 16% more prompt tokens. This is directional only at n = 12.
+- **Reranking helped:** Hit@5 rose from 58% to 75%, and two multi-company questions improved (Q10 went from a partial answer to a full one; Q11 went from a refusal to a partial answer that correctly flags AMD's missing figure). The cost was about 1.5 s of added latency and 16% more prompt tokens. This is directional only at n = 12.
 - **Recursive (structure-aware) chunking gave no measurable benefit** over fixed 512-token chunks, despite producing 15% more chunks. (The two strategies also differ in overlap: 0 tokens for fixed vs 200 characters for recursive.)
 - **Number questions did well:** page-split PDF parsing kept the financial tables readable.
 
