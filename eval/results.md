@@ -20,7 +20,7 @@ How derived: n8n averages metrics over all 15 rows; unanswerable rows always sco
 | Q04-Q06 | fact/number | Answered | |
 | Q07 | number | Answered "$8.1 billion" | Correct but rounded (MD&A text), likely Hit@5 miss: metric limitation |
 | Q08-Q09 | number | Answered | |
-| Q10 | multi | Answered (NVIDIA part) | Check for AMD figure: possible partial answer |
+| Q10 | multi | Answered (NVIDIA part only) | Partial answer |
 | Q11 | multi | Refused | One-company crowding |
 | Q12 | multi | Refused | One-company crowding |
 | Q13-Q15 | unanswerable | Refused | Correct |
@@ -32,7 +32,7 @@ How derived: n8n averages metrics over all 15 rows; unanswerable rows always sco
 | Q03 | Refused | Refused | Not fixed |
 | Q07 | "$8.1 billion" (rounded) | "$8.091 billion" | More precise (table value) |
 | Q10 | NVIDIA part only | Both NVIDIA and AMD | Partial -> full |
-| Q11 | Refused | Answered (check AMD 31,000 present) | Crowding fixed |
+| Q11 | Refused | Partial: NVIDIA 42,000 given; says AMD's count isn't in the excerpts | Crowding partly fixed; AMD p19 chunk not retrieved |
 | Q12 | Refused | Refused | Not fixed; lowest rerank score 0.570 |
 | Q13-Q15 | Refused | Refused | Correct, 3/3 |
 Cohere rerank scores: unanswerable 0.208 / 0.609 / 0.331; answerable 0.570-0.964. Q14 (NVIDIA stock price, 0.609) outscored answerable Q12 (0.570): no threshold separates them under reranking; the prompt refusal rule carried safety.
@@ -65,3 +65,4 @@ Cohere rerank scores: unanswerable 0.208 / 0.609 / 0.331; answerable 0.570-0.964
 - No true semantic chunker in n8n; recursive is the closest equivalent.
 - 15 questions: differences of 1-2 questions are noise.
 - Reference answers drafted by Claude from the filing text with page citations; Q06, Q10, Q12 cross-checked against source pages.
+- Export check: Token Splitter has no chunkOverlap set, so the fixed strategy ran at 0 overlap (n8n default), not the planned 50. Docs corrected.
